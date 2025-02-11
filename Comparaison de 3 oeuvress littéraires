@@ -1,0 +1,111 @@
+!pip install spacy gensim nltk matplotlib wordcloud
+!python -m spacy download fr_core_news_sm  # Modèle SpaCy en français
+
+import os
+import spacy
+import nltk
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import gensim
+import gensim.corpora as corpora
+from wordcloud import WordCloud
+from collections import Counter
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from google.colab import drive
+
+# Télécharger les stopwords pour NLTK
+nltk.download("stopwords")
+nltk.download("punkt")
+
+!python -m spacy download fr_core_news_sm
+import spacy
+
+# This line should now work without errors
+nlp = spacy.load("fr_core_news_sm")
+
+# Monter Google Drive
+drive.mount("/content/drive")
+
+# Chemin vers le dossier contenant les fichiers TXT
+text_folder = "/content/drive/MyDrive/Auteurs"  # Remplace avec ton dossier
+
+# Fonction pour charger les textes
+def load_texts(folder_path):
+    texts = []
+    filenames = []
+    for filename in os.listdir(folder_path):
+        if filename.endswith(".txt"):
+            file_path = os.path.join(folder_path, filename)
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as file:
+                texts.append(file.read())
+                filenames.append(filename)
+    return texts, filenames
+
+# Charger les textes
+texts, filenames = load_texts(text_folder)
+
+# Fonction de prétraitement du texte
+def preprocess_text(text):
+    doc = nlp(text.lower())  # Convertir en minuscule et passer par SpaCy
+    tokens = [token.lemma_ for token in doc if token.is_alpha and not token.is_stop]
+    return tokens
+
+# Appliquer le prétraitement
+processed_texts = [preprocess_text(text) for text in texts]
+
+# Étape 1 : Analyse des mots-clés récurrents
+def get_top_keywords(processed_texts, n=10):
+    all_words = [word for text in processed_texts for word in text]
+    word_freq = Counter(all_words)
+    return word_freq.most_common(n)
+
+# Afficher les 10 mots les plus fréquents par texte
+for i, text in enumerate(processed_texts):
+    print(f"📖 {filenames[i]} - Top mots-clés : {get_top_keywords([text])}")
+
+# Étape 2 : Modélisation des thèmes avec LDA (Latent Dirichlet Allocation)
+dictionary = corpora.Dictionary(processed_texts)
+corpus = [dictionary.doc2bow(text) for text in processed_texts]
+
+# Nombre de thèmes (ajuste selon le besoin)
+num_topics = 3
+
+lda_model = gensim.models.LdaModel(corpus, num_topics=num_topics, id2word=dictionary, passes=10)
+
+# Affichage des thèmes
+print("\n Thèmes détectés :")
+for idx, topic in lda_model.print_topics():
+    print(f"Thème {idx + 1}: {topic}")
+
+# Étape 3 : Analyse stylistique avec la fréquence des mots
+def plot_word_frequencies(processed_texts, filenames):
+    plt.figure(figsize=(10, 5))
+    
+    for i, text in enumerate(processed_texts):
+        word_freq = Counter(text)
+        common_words = word_freq.most_common(15)  # Top 15 mots
+        words, freqs = zip(*common_words)
+        
+        plt.barh(words, freqs, alpha=0.7, label=filenames[i])
+
+    plt.xlabel("Fréquence")
+    plt.ylabel("Mots-clés")
+    plt.title("Comparaison des mots-clés les plus fréquents")
+    plt.legend()
+    plt.show()
+
+plot_word_frequencies(processed_texts, filenames)
+
+# Étape 4 : Génération de nuages de mots
+def generate_wordcloud(text, title):
+    wordcloud = WordCloud(width=800, height=400, background_color="white").generate(" ".join(text))
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wordcloud, interpolation="bilinear")
+    plt.axis("off")
+    plt.title(title)
+    plt.show()
+
+for i, text in enumerate(processed_texts):
+    generate_wordcloud(text, f"Nuage de mots - {filenames[i]}")
