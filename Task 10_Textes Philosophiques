@@ -1,0 +1,74 @@
+# Installer les bibliothèques requises (si ce n'est pas déjà fait)
+!pip install spacy gensim seaborn pandas scikit-learn
+!python -m spacy download fr_core_news_sm
+
+# Monter Google Drive (dans Colab)
+from google.colab import drive
+drive.mount('/content/drive')
+import os
+import glob
+import spacy
+import gensim
+import gensim.corpora as corpora
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Charger le modèle SpaCy pour le français
+nlp = spacy.load("fr_core_news_sm")
+# Spécifiez le chemin vers le dossier contenant vos fichiers TXT sur Google Drive
+folder_path = '/content/drive/MyDrive/Philosophie'  # À adapter selon votre organisation
+
+# Récupérer la liste de tous les fichiers TXT dans le dossier
+file_pattern = os.path.join(folder_path, '*.txt')
+files = glob.glob(file_pattern)
+
+print("Fichiers trouvés :")
+for file in files:
+    print(os.path.basename(file))
+
+# Lecture des fichiers et stockage dans un dictionnaire {nom_fichier: contenu}
+texts = {}
+for file in files:
+    with open(file, 'r', encoding='utf-8') as f:
+        texts[os.path.basename(file)] = f.read()
+def preprocess(text):
+    """
+    Prétraitement du texte :
+      - Lemmatisation,
+      - Suppression des stop words et de la ponctuation (conserve certains signes si nécessaire).
+    Retourne une liste de tokens.
+    """
+    doc = nlp(text)
+    # On conserve l'em-dash '—' si besoin (les autres signes de ponctuation seront supprimés)
+    tokens = [token.lemma_.lower() for token in doc
+              if not token.is_stop and not (token.is_punct and token.text not in ['—'])]
+    return tokens
+
+# Appliquer le prétraitement à tous les textes
+processed_texts = [preprocess(text) for text in texts.values()]
+
+# Afficher un aperçu de tokens pour le premier document
+print("Exemple de tokens pour le premier document :", processed_texts[0][:20])
+
+from matplotlib import pyplot as plt
+import seaborn as sns
+def _plot_series(series, series_name, series_index=0):
+  palette = list(sns.palettes.mpl_palette('Dark2'))
+  counted = (series['Platon.txt']
+                .value_counts()
+              .reset_index(name='counts')
+              .rename({'index': 'Platon.txt'}, axis=1)
+              .sort_values('Platon.txt', ascending=True))
+  xs = counted['Platon.txt']
+  ys = counted['counts']
+  plt.plot(xs, ys, label=series_name, color=palette[series_index % len(palette)])
+
+fig, ax = plt.subplots(figsize=(10, 5.2), layout='constrained')
+df_sorted = df_sim.sort_values('Platon.txt', ascending=True)
+_plot_series(df_sorted, '')
+sns.despine(fig=fig, ax=ax)
+plt.xlabel('Platon.txt')
+_ = plt.ylabel('count()')
