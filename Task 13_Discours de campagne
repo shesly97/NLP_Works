@@ -1,0 +1,72 @@
+!pip install spacy  numpy  pandas matplotlib
+!python -m spacy download fr_core_news_sm
+import os
+import spacy
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from wordcloud import WordCloud
+
+# Charger le modèle SpaCy pour le français
+nlp = spacy.load("fr_core_news_sm")
+
+# Exemple de promesses de campagne (chaque parti a une liste de promesses)
+promesses = {
+    "Parti A": "Nous améliorerons l'éducation et réduirons les impôts pour les familles.",
+    "Parti B": "Nous investirons dans la santé et augmenterons le salaire minimum.",
+    "Parti C": "Nous réduirons les impôts pour encourager l'entrepreneuriat.",
+    "Parti D": "Nous renforcerons le système de santé et investirons dans l'éducation et des programmes d'alphabétisation pour adulte.",
+    "Parti E": "Nous augmenterons le salaire minimum et améliorerons l'accès aux soins, et services sociaux."}
+
+# Prétraitement des promesses
+def preprocess_text(text):
+    doc = nlp(text.lower())
+    return " ".join([token.lemma_ for token in doc if token.is_alpha and not token.is_stop])
+
+processed_promesses = {parti: preprocess_text(texte) for parti, texte in promesses.items()}
+
+# Vectorisation avec TF-IDF
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(processed_promesses.values())
+
+# Clustering avec K-Means
+num_clusters = 3  # Nombre de groupes souhaités
+kmeans = KMeans(n_clusters=num_clusters, random_state=42, n_init=10)
+kmeans.fit(X)
+labels = kmeans.labels_
+
+# Associer les promesses aux clusters
+df = pd.DataFrame({"Parti": processed_promesses.keys(), "Cluster": labels})
+print(df.sort_values("Cluster"))
+
+# Réduction de dimensions avec PCA pour visualisation
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X.toarray())
+
+plt.figure(figsize=(10, 6))
+colors = ['red', 'blue', 'green']
+for i in range(num_clusters):
+    plt.scatter(X_pca[labels == i, 0], X_pca[labels == i, 1], label=f"Cluster {i}", c=colors[i])
+
+for i, parti in enumerate(promesses.keys()):
+    plt.annotate(parti, (X_pca[i, 0], X_pca[i, 1]))
+
+plt.xlabel("Composante 1")
+plt.ylabel("Composante 2")
+plt.title("Clustering des promesses de campagne")
+plt.legend()
+plt.show()
+
+# Générer un nuage de mots pour chaque cluster
+for cluster in range(num_clusters):
+    cluster_texts = " ".join([processed_promesses[parti] for parti, lbl in zip(promesses.keys(), labels) if lbl == cluster])
+    wordcloud = WordCloud(width=800, height=400, background_color="white").generate(cluster_texts)
+
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wordcloud, interpolation="bilinear")
+    plt.axis("off")
+    plt.title(f"Nuage de mots pour le Cluster {cluster}")
+    plt.show()
