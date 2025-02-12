@@ -1,0 +1,85 @@
+!pip install spacy sklearn gensim PyMuPDF pandas matplotlib
+!python -m spacy download fr_core_news_sm
+!pip install --upgrade scikit-learn
+
+!python -m spacy download fr_core_news_sm
+!pip install pymupdf
+
+import fitz  # PyMuPDF pour extraire le texte des PDFs
+import os
+import spacy
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
+from wordcloud import WordCloud
+
+# Charger le modèle SpaCy en français
+nlp = spacy.load("fr_core_news_sm")
+
+# Dossier contenant les articles PDF dans Google Drive
+pdf_folder = "/content/drive/MyDrive/Articles"
+
+# Fonction pour extraire le texte des fichiers PDF
+def extract_text_from_pdf(pdf_path):
+    text = ""
+    with fitz.open(pdf_path) as doc:
+        for page in doc:
+            text += page.get_text("text") + "\n"
+    return text
+
+# Lire tous les fichiers PDF du dossier
+pdf_files = [os.path.join(pdf_folder, f) for f in os.listdir(pdf_folder) if f.endswith(".pdf")]
+
+# Extraire le texte de chaque fichier
+documents = [extract_text_from_pdf(pdf) for pdf in pdf_files]
+document_names = [os.path.basename(pdf) for pdf in pdf_files]
+
+# Prétraitement du texte (lemmatisation avec SpaCy)
+def preprocess_text(text):
+    doc = nlp(text.lower())
+    return " ".join([token.lemma_ for token in doc if token.is_alpha and not token.is_stop])
+
+processed_documents = [preprocess_text(doc) for doc in documents]
+
+# Vectorisation des textes avec TF-IDF
+vectorizer = TfidfVectorizer(max_features=1000)
+X = vectorizer.fit_transform(processed_documents)
+
+# Détermination du nombre optimal de clusters avec la méthode du coude
+wcss = []
+# Change here: Ensure the loop does not exceed the number of documents
+max_clusters = min(10, len(processed_documents))  # Limit clusters to 10 or the number of documents, whichever is smaller
+for i in range(1, max_clusters + 1):
+    kmeans = KMeans(n_clusters=i, random_state=42, n_init=10)
+    kmeans.fit(X)
+    wcss.append(kmeans.inertia_)
+
+plt.plot(range(1, len(wcss) + 1), wcss, marker="o")  # Correction ici
+plt.xlabel("Nombre de clusters")
+plt.ylabel("WCSS (Inertie)")
+plt.title("Méthode du coude pour déterminer le nombre optimal de clusters")
+plt.show()
+
+# Clustering avec K-Means
+num_clusters = 3  # Ajuste en fonction du graphique
+kmeans = KMeans(n_clusters=num_clusters, random_state=42, n_init=10)
+clusters = kmeans.fit_predict(X)
+
+# Associer chaque document à son cluster
+df = pd.DataFrame({"Article": document_names, "Cluster": clusters})
+
+# Affichage des résultats
+print(df.sort_values("Cluster"))
+
+# Génération d'un nuage de mots pour chaque cluster
+for cluster_num in range(num_clusters):
+    cluster_texts = " ".join([processed_documents[i] for i in range(len(clusters)) if clusters[i] == cluster_num])
+    wordcloud = WordCloud(width=800, height=400, background_color="white").generate(cluster_texts)
+
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wordcloud, interpolation="bilinear")
+    plt.axis("off")
+    plt.title(f"Nuage de mots pour le Cluster {cluster_num}")
+    plt.show()
