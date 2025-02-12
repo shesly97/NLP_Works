@@ -1,0 +1,55 @@
+!ip install spacy gensim pandas numpy google.colab
+!python -m spacy download fr_core_news_sm
+import spacy
+import pandas as pd
+import numpy as np
+import gensim
+from gensim import corpora
+from gensim.models import LdaModel
+from sklearn.metrics.pairwise import cosine_similarity
+from google.colab import drive
+
+# Montage de Google Drive
+drive.mount('/content/drive')
+
+# Charger le modèle SpaCy
+nlp = spacy.load("fr_core_news_sm")
+
+# Fonction pour charger un texte depuis Drive
+def load_text(filepath):
+    with open(filepath, "r", encoding="utf-8") as file:
+        return file.read()
+
+# Charger les fichiers (modifie les chemins selon tes fichiers)
+bible_text = load_text("/content/drive/My Drive/Croyance/Bible.txt")
+coran_text = load_text("/content/drive/My Drive/Croyance/Coran.txt")
+
+# Fonction de prétraitement du texte
+def preprocess_text(text):
+    doc = nlp(text.lower())  # Conversion en minuscules
+    tokens = [token.lemma_ for token in doc if token.is_alpha and not token.is_stop]
+    return tokens
+
+# Appliquer le prétraitement
+bible_tokens = preprocess_text(bible_text) # Changed Bible_text to bible_text
+coran_tokens = preprocess_text(coran_text)
+
+# Créer un dictionnaire pour LDA
+dictionary = corpora.Dictionary([bible_tokens, coran_tokens])
+corpus = [dictionary.doc2bow(bible_tokens), dictionary.doc2bow(coran_tokens)]
+
+# Modèle de classification des thèmes (LDA)
+lda_model = LdaModel(corpus, num_topics=5, id2word=dictionary, passes=10)
+
+# Afficher les thèmes identifiés
+for idx, topic in lda_model.print_topics():
+    print(f"Thème {idx + 1}: {topic}")
+
+# Calculer la similarité des textes
+def compute_similarity(text1, text2):
+    doc1 = nlp(" ".join(text1))
+    doc2 = nlp(" ".join(text2))
+    return doc1.similarity(doc2)
+
+similarity_score = compute_similarity(bible_tokens, coran_tokens)
+print(f"Score de similarité entre la Bible et le Coran : {similarity_score:.2f}")
