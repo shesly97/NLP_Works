@@ -1,0 +1,84 @@
+!pip install pandas spacy sklearn wordcloud seaborn matplotlib
+!python -m spacy download fr_core_news_sm
+!pip install --upgrade pip setuptools wheel
+!pip install --upgrade scikit-learn
+!python --version
+!python -m venv venv
+!source venv/bin/activate  # Sur macOS/Linux
+!venv\Scripts\activate  # Sur Windows
+
+!pip install --upgrade pip setuptools wheel
+!pip install scikit-learn
+!pip install --upgrade pip setuptools wheel
+!pip install scikit-learn
+
+!pip install pandas spacy sklearn wordcloud seaborn matplotlib
+!python -m spacy download fr_core_news_sm
+import pandas as pd
+import spacy
+import matplotlib.pyplot as plt
+import seaborn as sns
+from wordcloud import WordCloud
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import make_pipeline
+
+# Charger le modèle de langue SpaCy
+nlp = spacy.load("fr_core_news_sm")
+
+# Simuler un jeu de données d'avis clients
+data = {
+    "Produit": ["Téléphone", "Android", "Téléphone", "Ipad", "Airpods", "ServiceClient"],
+    "Avis": [
+        "J'ai acheté des bon d'achat Apple pour la 1ère fois et tout c'est très bien passé.",
+        "Je suis passé de android à la pomme et je ne regrette vraiment pas mon choix.",
+        "Plus jamais Apple ! Surtout l’Iphone 14",
+        "Bon rapport qualité-prix, très satisfait.",
+        "j’ai dépensé 2500€ avec 2 iphone 12 et 2 paires d’airpods pour rien.",
+        "Le service client est horrible, totalement inutile et menteur, arnaque de 39€ pour un diagnostic bidon"
+    ],
+    "Sentiment": ["Positif", "Positif", "Négatif", "Positif", "Neutre", "Négatif"]
+}
+
+df = pd.DataFrame(data)
+
+# Prétraitement du texte
+def preprocess_text(text):
+    doc = nlp(text.lower())
+    return " ".join([token.lemma_ for token in doc if token.is_alpha and not token.is_stop])
+
+df["Avis_clean"] = df["Avis"].apply(preprocess_text)
+
+# Analyse de fréquence des mots-clés
+vectorizer = CountVectorizer()
+word_freq = vectorizer.fit_transform(df["Avis_clean"])
+word_counts = pd.DataFrame(word_freq.toarray(), columns=vectorizer.get_feature_names_out())
+
+# Affichage du nuage de mots pour visualiser les thèmes dominants
+all_text = " ".join(df["Avis_clean"])
+wordcloud = WordCloud(width=800, height=400, background_color="white").generate(all_text)
+
+plt.figure(figsize=(10, 5))
+plt.imshow(wordcloud, interpolation="bilinear")
+plt.axis("off")
+plt.title("Nuage de mots des avis clients")
+plt.show()
+
+# Analyse des sentiments avec Naïve Bayes
+model = make_pipeline(TfidfVectorizer(), MultinomialNB())
+model.fit(df["Avis_clean"], df["Sentiment"])
+
+# Prédiction sur un nouvel avis
+new_review = "Ce téléphone est trop cher pour sa qualité."
+new_review_clean = preprocess_text(new_review)
+predicted_sentiment = model.predict([new_review_clean])[0]
+
+print(f"Avis analysé : {new_review}")
+print(f"Sentiment prédit : {predicted_sentiment}")
+
+# Analyse des tendances par produit
+plt.figure(figsize=(8, 4))
+sns.countplot(data=df, x="Produit", hue="Sentiment", palette="coolwarm")
+plt.title("Répartition des sentiments par produit")
+plt.show()
