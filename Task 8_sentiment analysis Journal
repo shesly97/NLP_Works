@@ -1,0 +1,22 @@
+!pip install spacy textblob nltk pandas
+!python -m spacy download en_core_web_sm
+!python -m spacy download fr_core_news_sm # This downloads fr_core_news_sm, not fr_core_web_sm
+
+import os
+import glob
+import spacy
+import pandas as pd
+from textblob import TextBlob
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+
+# Télécharger le lexique VADER (si nécessaire)
+nltk.download('vader_lexicon')
+
+# Charger le modèle SpaCy en anglais
+nlp_en = spacy.load("en_core_web_sm")  # Use a different variable name for the English model
+nlp_fr = spacy.load("fr_core_news_sm") # Load the correct French model name 'fr_core_news_sm'
+
+
+# Initialiser l'analyseur VADER
+sia = SentimentIntensityAnalyzer()
