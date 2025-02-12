@@ -1,0 +1,126 @@
+! pip install spacy
+! pip install spacy gensim matplotlib wordcloud nltk
+!python -m spacy download en_core_web_sm
+import spacy
+from collections import Counter
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+from gensim import corpora
+from gensim.models import LdaModel
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+import string
+
+nltk.download('punkt')
+nltk.download('stopwords')
+
+# Charger le modèle de langue SpaCy
+nlp = spacy.load("en_core_web_sm")
+
+# Titres des textes
+title1 = "Texte 1 : Lorsque J'étais une oeuvre d'art de Éric-Emmanuel Schmitt"
+title2 = "Texte 2 : L'Etranger d'Albert Camus"
+
+# Charger les textes littéraires
+text1 = """J'ai toujours raté mes suicides.
+J'ai toujours tout raté, pour être exact: ma vie comme mes suicides.
+Ce qui est cruel, dans mon cas, c'est que je m'en rends compte. Nous sommes des milliers sur Terre à manquer de force, d'esprit, de beauté ou de chance, or ce qui fait ma malheureuse singularité, c'est que j'en suis conscient. Tous les dons m'auront été épargnés sauf la lucidité.
+Rater ma vie, soit... mais rater mes suicides ! J'ai honte de moi. Incapable d'entrer dans la vie et pas fichu d'en sortir, je me suis inutile, je ne me dois rien. Il est temps d'insuffler un peu de volonté à mon destin. La vie, j'en ai hérité; la mort, je me la donnerai!
+Voilà ce que je me disais, ce matin-là, en regardant le précipice qui s'ouvrait sous mes pieds. Si loin que portaient mes yeux, ce n'était que ravins, crevasses, pointes rocheuses poignardant les arbustes, et, plus bas, un moutonnement d'eaux immense, furieux, chaotique, comme un défi à l'immobile. J'allais pouvoir gagner un peu d'estime de moi- même en me tuant."""
+text2 = """Aujourd'hui, maman est morte. Ou peut-être hier, je ne sais pas.
+J'ai reçu un télégramme de l'asile : « Mère décédée. Enterrement demain. Sentiments distingués. » Cela ne veut rien dire. C'était peut-être hier.
+L'asile de vieillards est à Marengo, à quatre-vingts kilomètres
+d'Alger. Je prendrai l'autobus à deux heures et j'arriverai dans
+l'après-midi. Ainsi, je pourrai veiller et je rentrerai demain soir. J'ai
+demandé deux jours de congé à mon patron et il ne pouvait pas me les
+refuser avec une excuse  pareille. Mais il n'avait pas l'air content.
+Je lui ai même dit : « Ce n'est pas de ma faute. » Il n'a pas répondu.
+J'ai pensé alors que je n'aurais pas dû lui dire cela. En somme, je
+n'avais pas à m'excuser. C'était plutôt à lui de me présenter ses
+condoléances. Mais il le fera sans doute après-demain, quand il me verra en deuil. Pour le moment, c'est un peu comme si maman n'était pas
+morte. Après l'enterrement, au contraire, ce sera une affaire classée
+et tout aura revêtu une allure plus officielle."""
+
+# Prétraitement des textes
+def preprocess_text(text):
+    # Tokenisation avec NLTK
+    tokens = word_tokenize(text.lower())
+    # Suppression des mots vides, de la ponctuation et des chiffres
+    stop_words = set(stopwords.words('english'))
+    tokens = [word for word in tokens if word.isalpha() and word not in stop_words]
+    return tokens
+
+tokens1 = preprocess_text(text1)
+tokens2 = preprocess_text(text2)
+
+# Extraction des mots-clés récurrents
+def extract_keywords(tokens, n=10):
+    return Counter(tokens).most_common(n)
+
+keywords1 = extract_keywords(tokens1)
+keywords2 = extract_keywords(tokens2)
+
+print("Mots-clés récurrents dans le texte 1 :", keywords1)
+print("Mots-clés récurrents dans le texte 2 :", keywords2)
+
+# Visualisation des mots-clés sous forme de nuages de mots
+def generate_wordcloud(tokens, title):
+    wordcloud = WordCloud(width=800, height=400, background_color="pink").generate(" ".join(tokens))
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wordcloud, interpolation="bilinear")
+    plt.axis("off")
+    plt.title(title, fontsize=16)
+    plt.show()
+
+generate_wordcloud(tokens1, "Nuage de mots - Texte 1")
+generate_wordcloud(tokens2, "Nuage de mots - Texte 2")
+
+# Analyse des thèmes avec Gensim LDA
+def extract_themes(tokens, num_topics=3, num_words=5):
+    dictionary = corpora.Dictionary([tokens])
+    corpus = [dictionary.doc2bow(tokens)]
+    lda_model = LdaModel(corpus, num_topics=num_topics, id2word=dictionary, passes=15)
+    themes = lda_model.print_topics(num_topics=num_topics, num_words=num_words)
+    return themes
+
+themes1 = extract_themes(tokens1)
+themes2 = extract_themes(tokens2)
+
+print("Thèmes principaux dans le texte 1 :")
+for i, theme in enumerate(themes1):
+    print(f"Thème {i+1}: {theme}")
+
+print("\nThèmes principaux dans le texte 2 :")
+for i, theme in enumerate(themes2):
+    print(f"Thème {i+1}: {theme}")
+
+# Analyse stylistique avec SpaCy
+def stylistic_analysis(text):
+    doc = nlp(text)
+    sentences = list(doc.sents)
+    avg_sentence_length = sum(len(sent) for sent in sentences) / len(sentences)
+    pos_counts = Counter(token.pos_ for token in doc)
+    return {
+        "Average Sentence Length": avg_sentence_length,
+        "POS Distribution": pos_counts
+    }
+
+style1 = stylistic_analysis(text1)
+style2 = stylistic_analysis(text2)
+
+print("\nAnalyse stylistique du texte 1 :", style1)
+print("Analyse stylistique du texte 2 :", style2)
+
+# Visualisation des distributions des parties du discours (POS)
+def plot_pos_distribution(pos_counts, title):
+    labels, values = zip(*pos_counts.items())
+    plt.figure(figsize=(10, 5))
+    plt.bar(labels, values, color="skyblue")
+    plt.title(title, fontsize=16)
+    plt.ylabel("Fréquence")
+    plt.show()
+
+plot_pos_distribution(style1["POS Distribution"], "Distribution des POS - Texte 1")
+plot_pos_distribution(style2["POS Distribution"], "Distribution des POS - Texte 2")
+
