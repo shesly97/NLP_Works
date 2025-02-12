@@ -1,0 +1,86 @@
+# Étape 1 : Importation des bibliothèques nécessaires
+import spacy
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from google.colab import files
+!pip install pymupdf
+import fitz  # PyMuPDF pour extraire le texte du PDF
+
+# Étape 2 : Télécharger le modèle français de SpaCy (si ce n'est pas déjà fait)
+!python -m spacy download fr_core_news_sm
+
+# Charger le modèle de langage français
+nlp = spacy.load("fr_core_news_sm")
+
+# Étape 3 : Fonction pour extraire le texte d'un PDF
+def extract_text_from_pdf(pdf_path):
+    doc = fitz.open(pdf_path)  # Ouvrir le fichier PDF
+    text = ""
+    for page in doc:
+        text += page.get_text()  # Extraire le texte de chaque page
+    doc.close()
+    return text
+
+# Étape 4 : Fonction pour extraire les compétences
+def extract_skills(text, keywords):
+    doc = nlp(text.lower())
+    skills_found = [token.text for token in doc if token.text in keywords]
+    return set(skills_found)
+
+# Étape 5 : Calculer la similarité entre le CV et la description de poste
+def calculate_similarity(cv_text, job_description):
+    # Use stop_words='english' or create a list of french stopwords
+    # or set it to None if you don't want to remove stop words
+    # tfidf_vectorizer = TfidfVectorizer(stop_words="french")
+    tfidf_vectorizer = TfidfVectorizer(stop_words="english")  # Changed to 'english'
+
+    tfidf_matrix = tfidf_vectorizer.fit_transform([cv_text, job_description])
+    return cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
+
+# Étape 6 : Comparer le CV et la description de poste
+def compare_cv_to_job(cv_text, job_description, skill_keywords):
+    # Extraire les compétences
+    cv_skills = extract_skills(cv_text, skill_keywords)
+    job_skills = extract_skills(job_description, skill_keywords)
+
+    # Calculer la similarité
+    similarity_score = calculate_similarity(cv_text, job_description)
+
+    # Identifier les compétences manquantes
+    missing_skills = job_skills - cv_skills
+    extra_skills = cv_skills - job_skills
+
+    return {
+        "similarity_score": round(similarity_score * 100, 2),  # Score en pourcentage
+        "cv_skills": cv_skills,
+        "job_skills": job_skills,
+        "missing_skills": missing_skills,
+        "extra_skills": extra_skills,
+    }
+
+# Étape 7 : Télécharger le fichier PDF dans Google Colab
+print("Veuillez téléverser votre CV au format PDF.")
+uploaded = files.upload()
+cv_path = list(uploaded.keys())[0]  # Obtenir le nom du fichier PDF téléversé
+
+# Étape 8 : Extraire le texte du CV
+cv_text = extract_text_from_pdf(cv_path)
+
+# Exemple de description de poste
+job_description = """
+Nous recherchons un candidat ayant une expérience en Python, gestion de projet, analyse de données, et apprentissage automatique.
+Des compétences en communication et travail collaboratif sont fortement recommandées.
+"""
+
+# Liste de mots-clés de compétences
+skill_keywords = {"python", "gestion de projet", "analyse de données", "nlp", "apprentissage automatique", "communication", "collaboration"}
+
+# Comparer le CV et la description de poste
+result = compare_cv_to_job(cv_text, job_description, skill_keywords)
+
+# Étape 9 : Afficher les résultats
+print(f"Score de compatibilité : {result['similarity_score']}%")
+print(f"Compétences trouvées dans le CV : {result['cv_skills']}")
+print(f"Compétences demandées par le poste : {result['job_skills']}")
+print(f"Compétences manquantes : {result['missing_skills']}")
+print(f"Compétences supplémentaires (non demandées) : {result['extra_skills']}")
