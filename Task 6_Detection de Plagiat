@@ -1,0 +1,131 @@
+# 1. Installation des dépendances (à exécuter si nécessaire)
+!pip install spacy sklearn difflib
+!pip install -U scikit-learn  # pour s'assurer d'avoir une version récente de scikit-learn
+!python -m spacy download en_core_web_sm
+
+# 2. Importation des bibliothèques
+import spacy
+import difflib
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# 3. Chargement du modèle SpaCy (anglais ici, mais vous pouvez l'adapter)
+nlp = spacy.load("en_core_web_sm")
+
+# 4. Exemple de données :
+# Travail de l'étudiant
+student_work = """
+Le langage est l’une des facultés humaines les plus complexes. Au niveau de la compréhension de
+l’être humain, la description des langues offre une fenêtre inestimable sur le fonctionnement
+du cerveau humain. Ainsi, l’une des contributions majeures de Noam Chomsky, la figure dominante
+de la linguistique au XXe siècle, a été de placer l’acquisition du langage au cœur de la
+théorie linguistique : étant donné que toute personne normalement constituée maîtrise une ou
+plusieurs langues, on doit se demander quels aspects de la langue sont appris à partir des
+apports de l’environnement, quels aspects proviennent d’éléments innés dans le cerveau, et
+comment fonctionne la faculté de langage. Cette conception est à la source de l’explosion
+actuelle de recherches visant à valider les descriptions linguistiques théoriques au moyen
+ de techniques de psycholinguistique expérimentale ou d’imagerie cérébrale.
+"""
+
+# Base de données d’œuvres existantes (chaque entrée représente un document existant)
+database_works = [
+    """
+    Qu’est-ce que la linguistique ?
+Peut-être vous êtes-vous déjà posé des questions comme les suivantes :
+Pourquoi est-ce si facile pour un enfant d’apprendre sa langue maternelle et si
+difficile pour un adulte d’apprendre de nouvelles langues ?
+Pourquoi les langues à travers le monde sont-elles si différentes tout en ayant
+tant en commun ? Comment le cerveau humain peut-il transformer des séquences de
+ sons en un flot aussi impressionnant d’informations ?
+La discipline qui peut répondre à de telles questions est la linguistique..
+    """,
+    """
+    La linguistique est l’étude scientifique du langage. C’est une discipline qui
+    existe depuis des millénaires, mais qui n’a connu son véritable essor qu’à
+    compter du XXe siècle en tant qu’approche scientifique des faits de langue.
+Pourquoi étudie-t-on la linguistique ?
+Il n’y a pas de domaine de la vie sociale dont la langue soit absente.
+Les sociétés humaines sont continuellement confrontées à des problèmes de nature
+linguistique. Les préoccupations liées au choix des langues dans les sociétés multilingues
+ et à la survie des langues menacées guident l’élaboration de politiques d’aménagement
+ linguistique. Le développement de sociétés éduquées repose crucialement sur le
+ développement des habiletés langagières des citoyennes et citoyens, tant à l’oral
+  qu’à l’écrit, et l’alphabétisation des populations est un enjeu de société majeur.
+
+Le langage est l’une des facultés humaines les plus complexes. Au niveau de la
+compréhension de l’être humain, la description des langues offre une fenêtre inestimable
+sur le fonctionnement du cerveau humain. Ainsi, l’une des contributions majeures de Noam Chomsky,
+la figure dominante de la linguistique au XXe siècle, a été de placer l’acquisition du langage au
+ cœur de la théorie linguistique : étant donné que toute personne normalement constituée maîtrise
+  une ou plusieurs langues, on doit se demander quels aspects de la langue sont appris à partir des
+  apports de l’environnement, quels aspects proviennent d’éléments innés dans le cerveau, et comment
+  fonctionne la faculté de langage. Cette conception est à la source de l’explosion actuelle de
+   recherches visant à valider les descriptions linguistiques théoriques au moyen de techniques de
+   psycholinguistique expérimentale ou d’imagerie cérébrale.
+
+Les applications des recherches linguistiques sont innombrables. Les méthodes d’enseignement de
+la lecture et de l’écriture, les méthodes d’enseignement des langues secondes, les tests d’évaluation
+du langage (par exemple en orthophonie), les dictionnaires, les grammaires, les moteurs de recherche,
+les outils de reconnaissance et de synthèse de la parole, les outils de traduction ou de fouilles linguistiques,
+les résumeurs automatiques, ces outils familiers et bien d’autres reposent sur des connaissances linguistiques
+et sur une conception de la nature du langage et de son traitement dans le cerveau des individus.
+.
+    """,
+    """
+    La linguistique fondamentale recouvre l’étude des aspects formels des langues tels que la phonétique, la phonologie, la morphologie, la syntaxe, la sémantique et la pragmatique. Appliquée à une langue donnée, l’étude de ces aspects formels constitue l’étude de la grammaire de cette langue. Une comparaison des grammaires des langues permet de mettre au jour les caractéristiques des langues humaines. Dans le cas du français, ce qu'on appelle la grammaire moderne ou nouvelle est une mise à jour de la grammaire traditionnelle sur la base des résultats des recherches linguistiques. La grammaire pour l'enseignement du français est fondée sur cette grammaire moderne.
+
+La linguistique dite « appliquée » recouvre l’ensemble des domaines interdisciplinaires de recherche et de pratique portant sur des problèmes de langage et de communication qui peuvent être identifiés, analysés et résolus en appliquant des connaissances linguistiques, et qui peuvent en retour informer les connaissances linguistiques. Le Département de linguistique de l’UQAM s’intéresse à trois grands champs d’intervention en linguistique appliquée : la psycholinguistique (incluant le champ de l’acquisition de la langue première et des langues secondes), la sociolinguistique et la linguistique informatique.
+
+Le domaine général de la psycholinguistique étudie le langage humain tel qu’incarné dans l’individu. Ce domaine d’étude fondamentalement expérimental, qui fait partie des sciences cognitives, porte sur la représentation mentale des connaissances linguistiques ainsi que sur les processus et les conditions d’acquisition et d’utilisation du langage. Il recouvre donc les recherches sur l’acquisition de la langue première et sur l’acquisition des langues secondes, que ce soit à l’oral ou à l’écrit.
+
+Le domaine général de la sociolinguistique s’intéresse au langage humain tel qu’incarné dans les sociétés. Parmi les champs de spécialisation couverts par ce terme, on peut noter la variation linguistique, la sociologie de la langue, le multilinguisme, les conflits linguistiques, la planification linguistique.
+
+Le domaine de la linguistique informatique s’intéresse à l’usage des technologies informatiques soit pour la génération automatique du langage, soit pour le traitement de données linguistiques dans le but de les analyser, de les modéliser, de les formaliser ou de les conserver. Avec l’universalisation des technologies informatiques, ce domaine acquiert de plus en plus d’importance.
+
+L’avancement des connaissances en linguistique a eu un impact important dans plusieurs disciplines où le langage joue un rôle central, comme en psychologie, en informatique et en philosophie. L’interaction de ces disciplines a d’ailleurs donné lieu à la naissance d’un champ interdisciplinaire particulièrement florissant, celui des « sciences cognitives ».
+.
+    """
+]
+
+# 5. Fonction de prétraitement avec SpaCy (lemmatisation, suppression des stop words et de la ponctuation)
+def preprocess(text):
+    doc = nlp(text)
+    tokens = [token.lemma_.lower() for token in doc if not token.is_stop and not token.is_punct]
+    return " ".join(tokens)
+
+# Prétraitement du texte étudiant et des documents de la base
+student_processed = preprocess(student_work)
+database_processed = [preprocess(doc) for doc in database_works]
+
+# 6. Calcul de la similarité cosinus via TF-IDF
+vectorizer = TfidfVectorizer()
+# On combine le texte de l'étudiant et les documents de la base pour avoir un même vocabulaire
+all_texts = [student_processed] + database_processed
+tfidf_matrix = vectorizer.fit_transform(all_texts)
+# La première ligne correspond au travail étudiant, les suivantes aux documents existants
+cosine_similarities = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:]).flatten()
+
+# 7. Calcul de la similarité avec difflib
+def difflib_similarity(text1, text2):
+    return difflib.SequenceMatcher(None, text1, text2).ratio()
+
+difflib_similarities = [difflib_similarity(student_processed, doc) for doc in database_processed]
+
+# 8. Détection de plagiat avec conditions if et elif
+# Seuils de similarité (ces valeurs peuvent être ajustées)
+threshold_cosine = 0.75    # Seuil pour la similarité cosinus
+threshold_difflib = 0.6    # Seuil pour difflib
+
+print("=== Analyse de plagiat ===\n")
+for i, (cos_sim, diff_sim) in enumerate(zip(cosine_similarities, difflib_similarities)):
+    print(f"Comparaison avec l'œuvre {i+1} de la base :")
+    print(f"  - Similarité cosinus : {cos_sim:.2f}")
+    print(f"  - Similarité difflib : {diff_sim:.2f}")
+
+    # Utilisation des conditions if et elif pour interpréter les scores
+    if cos_sim >= threshold_cosine and diff_sim >= threshold_difflib:
+        print("  => Niveau élevé de similarité détecté : risque de plagiat potentiel.\n")
+    elif cos_sim >= threshold_cosine or diff_sim >= threshold_difflib:
+        print("  => Niveau modéré de similarité détecté : à vérifier de plus près.\n")
+    else:
+        print("  => Similarité faible : pas de plagiat détecté.\n")
