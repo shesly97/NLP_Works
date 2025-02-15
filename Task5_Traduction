@@ -1,0 +1,48 @@
+!pip install spacy langdetect polyglot pyicu pycld2 morfessor python-docx
+!python -m spacy download fr_core_news_sm
+!python -m spacy download en_core_web_sm
+!python -m spacy download es_core_news_sm
+
+from google.colab import files
+import io
+from docx import Document
+
+def read_docx(file_path):
+  """Reads a Word file and returns its content as a string."""
+  doc = Document(file_path)
+  full_text = []
+  for para in doc.paragraphs:
+    full_text.append(para.text)
+  return "\n".join(full_text)
+
+# Upload files and store in dictionary
+uploaded = files.upload()
+
+# Initialize language dictionaries
+uploaded_fr = {}
+uploaded_en = {}
+uploaded_es = {}
+
+# Assign file names based on assumed language from user input during upload
+for filename, data in uploaded.items():
+  if "fr" in filename.lower(): # Assuming user includes 'fr' in French file name
+    uploaded_fr[filename] = io.BytesIO(data)
+  elif "en" in filename.lower(): # Assuming user includes 'en' in English file name
+    uploaded_en[filename] = io.BytesIO(data)
+  elif "es" in filename.lower(): # Assuming user includes 'es' in Spanish file name
+    uploaded_es[filename] = io.BytesIO(data)
+
+# Check if files were uploaded for each language
+if uploaded_fr and uploaded_en and uploaded_es:
+  Le_Petit_Prince = list(uploaded_fr.keys())[0]
+  The_Little_Prince = list(uploaded_en.keys())[0]
+  El_Principito = list(uploaded_es.keys())[0]
+
+  # Now you can read the content using read_docx and the file paths
+  texte_original = read_docx(Le_Petit_Prince)  # Use the appropriate file path
+  texte_anglais = read_docx(The_Little_Prince) # Use the appropriate file path
+  texte_espagnol = read_docx(El_Principito)   # Use the appropriate file path
+
+  # ... Rest of your code using texte_original, texte_anglais, texte_espagnol ...
+else:
+  print("Please upload files for all languages (French, English, Spanish)")
